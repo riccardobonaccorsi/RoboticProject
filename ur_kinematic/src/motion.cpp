@@ -15,7 +15,7 @@
 /**
  * if true  -> soft gripper
  * if false -> hard gripper
-*/
+ */
 #define soft_gripper false
 
 #define ROBOT_JOINTS 6
@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-
 std::vector<std::string> split(std::string s, std::string delimiter)
 {
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
@@ -81,10 +80,11 @@ void send_joint(Eigen::VectorXd joints_value)
             msg.data[i] = (float)joints_value[i];
             // std::cout << msg.data[i] << " ";
         }
-        
+
         msg.data[ROBOT_JOINTS + 0] = gripper_joint(0);
         msg.data[ROBOT_JOINTS + 1] = gripper_joint(1);
-        if (!soft_gripper) {
+        if (!soft_gripper)
+        {
             msg.data[ROBOT_JOINTS + 2] = gripper_joint(2);
         }
 
@@ -103,20 +103,21 @@ void vision_callback(std_msgs::String msg)
     for (int i = 0; i < data.size() - 1; i++)
     {
         /**
-         * splitto la stringa in modo da avere 
+         * splitto la stringa in modo da avere
          */
         std::vector<std::string> data_splitted = split(data[i], " ");
-        for (int k = 0; k < 4; k++) std::cout << "data[" << k << "] : " << data_splitted[k] << std::endl;
+        for (int k = 0; k < 4; k++)
+            std::cout << "data[" << k << "] : " << data_splitted[k] << std::endl;
 
         /**
          * salvo i dati in array di blocchi:
          */
         if (data_splitted.size() == 4)
         {
-            blocks[i].x = std::stod(data_splitted[0]) / 1000;       // pos x
-            blocks[i].y = std::stod(data_splitted[1]) / 1000;       // pos y
-            blocks[i].z = std::stod(data_splitted[2]) / 1000;       // pos z
-            blocks[i].c = std::stoi(data_splitted[3]);              // class
+            blocks[i].x = std::stod(data_splitted[0]) / 1000; // pos x
+            blocks[i].y = std::stod(data_splitted[1]) / 1000; // pos y
+            blocks[i].z = std::stod(data_splitted[2]) / 1000; // pos z
+            blocks[i].c = std::stoi(data_splitted[3]);        // class
 
             std::cout << "x: " << std::stod(data_splitted[2]) / 1000 << std::endl;
             std::cout << "y: " << std::stod(data_splitted[1]) / 1000 << std::endl;
@@ -131,13 +132,58 @@ void vision_callback(std_msgs::String msg)
     plan(blocks, n_block);
 }
 
+Eigen::Vector3d get_target_position(int c)
+{
+    Eigen::Vector3d ee_pos = Eigen::Vector3d::Ones();
+    if (c == 1)
+    {
+        ee_pos << 0.4, -0.34, 0.720;
+    }
+    else if (c == 2)
+    {
+        ee_pos << 0.4, -0.20, 0.720;
+    }
+    else if (c == 3)
+    {
+        ee_pos << 0.4, -0.05, 0.720;
+    }
+    else if (c == 4)
+    {
+        ee_pos << 0.25, -0.34, 0.720;
+    }
+    else if (c == 5)
+    {
+        ee_pos << 0.10, -0.34, 0.720;
+    }
+    else if (c == 6)
+    {
+        ee_pos << -0.05, -0.34, 0.720;
+    }
+    else if (c == 7)
+    {
+        ee_pos << -0.20, -0.34, 0.720;
+    }
+    else if (c == 8)
+    {
+        ee_pos << -0.35, -0.05, 0.720;
+    }
+    else if (c == 9)
+    {
+        ee_pos << -0.35, -0.20, 0.720;
+    }
+    else if (c == 10)
+    {
+        ee_pos << -0.35, -0.34, 0.720;
+    }
+}
+
 void plan(Prediction *data, int n_block)
 {
     ros::Rate rate(1000);
     for (int i = 0; i < n_block; i++)
     {
-        std::cout << "PLAN num " << (i+1) << std::endl;
-        
+        std::cout << "PLAN num " << (i + 1) << std::endl;
+
         eepos block_start;
         block_start.ee_pos << data[i].x, data[i].y, 0.72;
         block_start.ee_eul << Eigen::Vector3d::Zero();
@@ -147,7 +193,7 @@ void plan(Prediction *data, int n_block)
         move1 = block_start;
         move1.ee_pos(1) -= (0.031 / 2);
         move1.ee_pos(2) -= 0.2;
-        
+
         std::cout << "pos : " << move1.ee_pos(0) << " " << move1.ee_pos(1) << " " << move1.ee_pos(2) << std::endl;
 
         move(move1, 0.025);
@@ -161,7 +207,7 @@ void plan(Prediction *data, int n_block)
         move(move2);
 
         close_gripper();
-    
+
         eepos move3;
         move3 = block_start;
         move3.ee_pos(1) -= 0.031;
@@ -171,11 +217,7 @@ void plan(Prediction *data, int n_block)
         move(move3);
 
         eepos target;
-        if (data[i].c == 1) {
-        target.ee_pos << 0.4, -0.34, 0.720;
-        } else {
-        target.ee_pos << 0.4, -0.20, 0.720;
-        }
+        target.ee_pos = get_target_position(data[i].c);
         target.ee_eul = Eigen::Vector3d::Zero();
         std::cout << "pos : " << target.ee_pos(0) << " " << target.ee_pos(1) << " " << target.ee_pos(2) << std::endl;
 
@@ -204,7 +246,8 @@ void plan(Prediction *data, int n_block)
     }
 }
 
-void close_gripper() {
+void close_gripper()
+{
     ros::Rate rate(1000);
     float diameter = 40;
     float alpha = (diameter - 22) / (130 - 22) * (-M_PI) + M_PI;
@@ -216,7 +259,8 @@ void close_gripper() {
     }
     sleep(1);
 }
-void open_gripper() {
+void open_gripper()
+{
     ros::Rate rate(1000);
     float diameter = 100;
     for (int i = 0; i < 2; i++)
